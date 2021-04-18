@@ -41,6 +41,7 @@ fn create_emu(eip: usize, esp: u32) -> Emulator {
     registers[ESP] = esp;
     //println!("here!");
     //println!("{:?}", type_of(registers));
+    //println!("{:?}", registers);
     return Emulator {
         regs: registers,
         eflags: 0,
@@ -51,11 +52,23 @@ fn create_emu(eip: usize, esp: u32) -> Emulator {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    create_emu(0x0000, 0x7c00);
+    let mut emu = create_emu(0x0000, 0x7c00);
 
     if args.len() != 2 {
         println!("usage: x86emu filename");
         process::exit(1);
     }
 
+    let path = Path::new(&args[1]);
+	let display = path.display();
+
+	let mut file = match File::open(&path) {
+        Err(why) => {
+            panic!("couldn't open {}: {}", display, why.description())
+        },
+        Ok(file) => {
+            file
+        },
+    };
+    let file_len = file.metadata().unwrap().len();
 }
