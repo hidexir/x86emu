@@ -56,14 +56,40 @@ fn create_emu(eip: usize, esp: u32) -> Emulator {
 fn nop(_emu: &mut Emulator) {
 }
 
+fn get_code8(emu: &mut Emulator, index: usize) -> u32 {
+    return emu.mem[emu.eip + index] as u32;
+}
+
+fn get_sign_code8(emu: &mut Emulator, index: usize) -> i32 {
+    return emu.mem[emu.eip + index] as i32;
+}
+
+fn get_code32(emu: &mut Emulator, index: usize) -> u32 {
+    let mut ret: u32 = 0;
+
+    // Little endian.
+    for i in 0..4 {
+        ret |= get_code8(emu, index + i) << (i * 8);
+    }
+    return ret;
+}
+
 // MOV r32, imm32: Move imm32 to r32.
 fn mov_r32_imm32(emu: &mut Emulator) {
+    println!("here from mov_r32_imm32");
     let reg: usize = (get_code8(emu, 0) - 0xB8).try_into().unwrap();
     let value = get_code32(emu, 1);
     emu.regs[reg] = value;
     emu.eip += 5;
 }
 
+// JMP rel8: Jump short, relative, displacement relative to next instruction.
+fn short_jump(emu: &mut Emulator) {
+    let diff = get_sign_code8(emu, 1) as usize;
+    emu.eip += diff + 2;
+}
+
+// https://tanakamura.github.io/pllp/docs/x8664_language.html
 fn init_instructions(instructions: &mut Insts) {
 	for i in 0..8 {
         instructions[0xB8 + i] = mov_r32_imm32;
@@ -71,6 +97,13 @@ fn init_instructions(instructions: &mut Insts) {
     instructions[0xEB] = short_jump;
 }
 
+fn dump_registers(emu: &mut Emulator) {
+    for i in 0..REGISTERS_COUNT {
+        println!("{0} = {1:x}", REGISTERS_NAME[i], emu.regs[i])
+        //println!("{0} = {1:x}", REGISTERS_NAME[i], emu.regs[i])
+    }
+    println!("EIP = {}", emu.eip)
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -105,7 +138,31 @@ fn main() {
     println!("{:?}",instructions.len());
     println!("{:?}",instructions[0](&mut emu));
     println!("{:p}", instructions[0] as *const());
-    init_instructions(emu);
+    println!("{:p}", instructions[1] as *const());
+    println!("{:p}", instructions[0xE8] as *const());
+    init_instructions(&mut instructions);
+    //↓ここにshort jumpがきていることを確認できる.
+    println!("{:p}", instructions[0xEB] as *const());
+
+    while emu.eip < MEMORY_SIZE {
+        let code = get_code8(&mut emu, 0) as usize;
+        println!("EIP = {}, Code = {}", emu.eip, code);
+
+        if instructions[code] as usize == nop as usize {
+            println!("Not implemented: {0}", code);
+            break;
+        }
+
+        // Execute an instruction.
+        instructions[code](&mut emu);
+
+        // TODO: when does a program finish?
+        if emu.eip == file_len as usize {
+            println!("\nEnd of program.\n");
+            break;
+        }
+    }
+    dump_registers(&mut emu);
 
 
     println!("finish!! main()");
