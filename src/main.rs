@@ -74,6 +74,11 @@ fn get_code32(emu: &mut Emulator, index: usize) -> u32 {
     return ret;
 }
 
+fn get_sign_code32(emu: &mut Emulator, index: usize) -> i32 {
+    return get_code32(emu, index) as i32;
+}
+
+
 // MOV r32, imm32: Move imm32 to r32.
 fn mov_r32_imm32(emu: &mut Emulator) {
     println!("here from mov_r32_imm32");
@@ -88,6 +93,13 @@ fn short_jump(emu: &mut Emulator) {
     let diff = get_sign_code8(emu, 1) as usize;
     emu.eip += diff + 2;
 }
+
+// JMP rel32: Jump near, relative, RIP = RIP + 32-bit displacement sign extended to 64-bits.
+fn near_jump(emu: &mut Emulator) {
+    let diff = get_sign_code32(emu, 1) as usize;
+    emu.eip += diff + 5;
+}
+
 
 // https://tanakamura.github.io/pllp/docs/x8664_language.html
 fn init_instructions(instructions: &mut Insts) {
@@ -105,35 +117,40 @@ fn dump_registers(emu: &mut Emulator) {
     println!("EIP = {}", emu.eip)
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let mut emu = create_emu(0x0000, 0x7c00);
-
-    if args.len() != 2 {
-        println!("usage: x86emu filename");
-        process::exit(1);
-    }
-
-    let path = Path::new(&args[1]);
+fn read_binary(emu: &mut Emulator, filename: &String) -> u64 {
+    let path = Path::new(&filename);
 	let display = path.display();
 
 	let mut file = match File::open(&path) {
-        Err(why) => {
-            panic!("couldn't open {}: {}", display, why.description())
-        },
-        Ok(file) => {
-            file
-        },
+        Err(why) => panic!("couldn't open {}: {}", display,
+                                                   why.description()),
+        Ok(file) => file,
     };
     let file_len = file.metadata().unwrap().len();
-	let mut binary = Vec::<u8>::new();
 
+	let mut binary = Vec::<u8>::new();
     match file.read_to_end(&mut binary) {
         Err(why) => panic!("couldn't read {}: {}", display,
                                                    why.description()),
         Ok(_) => println!("read file from {}\n", display),
     }
     emu.mem = binary;
+
+    return file_len;
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+
+
+    if args.len() != 2 {
+        println!("usage: x86emu filename");
+        process::exit(1);
+    }
+
+    let mut emu = create_emu(0x0000, 0x7c00);
+    let len = read_binary(&mut emu, &args[1]);
+
     let mut instructions: Insts = [nop; 256];
     println!("{:?}",instructions.len());
     println!("{:?}",instructions[0](&mut emu));
@@ -157,7 +174,7 @@ fn main() {
         instructions[code](&mut emu);
 
         // TODO: when does a program finish?
-        if emu.eip == file_len as usize {
+        if emu.eip == len as usize {
             println!("\nEnd of program.\n");
             break;
         }
