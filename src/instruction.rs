@@ -1,5 +1,7 @@
 use crate::*;
 use function::*;
+use modrm::*;
+
 
 // MOV r32, imm32: Move imm32 to r32.
 pub fn mov_r32_imm32(emu: &mut Emulator) {
@@ -8,6 +10,16 @@ pub fn mov_r32_imm32(emu: &mut Emulator) {
     emu.regs[reg] = value;
     emu.eip += 5;
 }
+
+// MOV r/m32, imm32 (C7 /0 id): Move imm32 to r/m32.
+pub fn mov_rm32_imm32(emu: &mut Emulator) {
+    emu.eip += 1;
+    let modrm = parse_modrm(emu);
+    let value = get_code32(emu, 0);
+    emu.eip += 4;
+    set_rm32(emu, &modrm, value);
+}
+
 
 // JMP rel8: Jump short, relative, displacement relative to next instruction.
 pub fn short_jump(emu: &mut Emulator) {

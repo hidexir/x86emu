@@ -10,8 +10,10 @@ use std::any::type_name;
 
 pub mod instruction;
 pub mod function;
+pub mod modrm;
 use instruction::*;
 use function::*;
+use modrm::*;
 
 
 // Memory size is 1MiB.
