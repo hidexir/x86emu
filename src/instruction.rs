@@ -82,13 +82,6 @@ pub fn near_jump(emu: &mut Emulator) {
 pub fn nop(_emu: &mut Emulator) {
 }
 
-pub fn call_rel32(emu: &mut Emulator) {
-    let diff = get_sign_code32(emu, 1);
-    push32(emu, (emu.eip + 5).try_into().unwrap());
-    emu.eip = emu.eip.wrapping_add((diff + 5) as usize);
-}
-
-
 pub fn init_instructions(instructions: &mut Insts) {
     for i in 0..8 {
         instructions[0x50 + i] = push_r32;
@@ -113,8 +106,9 @@ pub fn init_instructions(instructions: &mut Insts) {
     instructions[0xE9] = near_jump;
     instructions[0xEB] = short_jump;
     instructions[0xFF] = code_ff;
-    instructions[0xE8] = call_rel32;
 
+    instructions[0xC3] = ret;
+    instructions[0xE8] = call_rel32;
 
 }
 
@@ -155,21 +149,27 @@ pub fn push_imm32(emu: &mut Emulator) {
 }
 
 pub fn push_imm8(emu: &mut Emulator) {
-    println!("call me!!");
-    println!("call me!!");
-    println!("call me!!");
-    println!("call me!!");
-    println!("call me!!");
-    println!("call me!!");
+    println!("push_imm8");
     let value = get_code8(emu, 1);
     push32(emu, value.into());
     emu.eip += 2;
 }
 
 pub fn pop_r32(emu: &mut Emulator) {
+    println!("call pop_r32");
     let reg = (get_code8(emu, 0) - 0x58) as usize;
     let value = pop32(emu);
     set_register32(emu, reg, value);
     emu.eip += 1;
+}
+
+pub fn call_rel32(emu: &mut Emulator) {
+    let diff = get_sign_code32(emu, 1);
+    push32(emu, (emu.eip + 5).try_into().unwrap());
+    emu.eip = emu.eip.wrapping_add((diff + 5) as usize);
+}
+
+pub fn ret(emu: &mut Emulator) {
+    emu.eip = pop32(emu).try_into().unwrap();
 }
 

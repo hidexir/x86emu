@@ -15,7 +15,6 @@ use instruction::*;
 use function::*;
 use modrm::*;
 
-
 // Memory size is 1MiB.
 const MEMORY_SIZE: usize = 1024 * 1024;
 
@@ -104,7 +103,7 @@ fn main() {
 
     let mut emu = create_emu(0x7c00, 0x7c00);
 
-    let len = read_binary(&mut emu, &args[1]);
+    let len = read_binary(&mut emu, &args[1]) + 0x7c00;
 
 
     let mut instructions: Insts = [nop; 256];
@@ -119,7 +118,7 @@ fn main() {
 
     while emu.eip < MEMORY_SIZE {
         let code = get_code8(&mut emu, 0) as usize;
-        println!("EIP = {}, Code = {}", emu.eip, code);
+        println!("EIP = {}, Code = {} {:x}", emu.eip, code, code);
 
         if instructions[code] as usize == nop as usize {
             println!("Not implemented: {0}", code);
@@ -130,8 +129,10 @@ fn main() {
         instructions[code](&mut emu);
 
         // TODO: when does a program finish?
-        if emu.eip >= len as usize {
-            println!("\nEnd of program.\n");
+        println!("len is {}",len);
+        println!("eip is {}",emu.eip);
+        if emu.eip >= len as usize || emu.eip == 0 {
+            println!("End of program.\n");
             break;
         }
     }
