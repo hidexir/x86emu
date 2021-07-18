@@ -76,7 +76,7 @@ pub fn short_jump(emu: &mut Emulator) {
 // JMP rel32: Jump near, relative, RIP = RIP + 32-bit displacement sign extended to 64-bits.
 pub fn near_jump(emu: &mut Emulator) {
     let diff = get_sign_code32(emu, 1) as usize;
-    emu.eip += diff + 5;
+    emu.eip = emu.eip.wrapping_add((diff + 5) as usize);
 }
 
 pub fn nop(_emu: &mut Emulator) {
