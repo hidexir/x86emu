@@ -86,7 +86,9 @@ fn read_binary(emu: &mut Emulator, filename: &String) -> u64 {
                                                    why.description()),
         Ok(_) => println!("read file from {}\n", display),
     }
-    emu.mem = binary;
+
+    emu.mem = vec![0; 0x7c00];
+    emu.mem.extend(binary);
 
     return file_len;
 }
@@ -100,8 +102,10 @@ fn main() {
         process::exit(1);
     }
 
-    let mut emu = create_emu(0x0000, 0x7c00);
+    let mut emu = create_emu(0x7c00, 0x7c00);
+
     let len = read_binary(&mut emu, &args[1]);
+
 
     let mut instructions: Insts = [nop; 256];
     println!("{:?}",instructions.len());
@@ -126,7 +130,7 @@ fn main() {
         instructions[code](&mut emu);
 
         // TODO: when does a program finish?
-        if emu.eip == len as usize {
+        if emu.eip >= len as usize {
             println!("\nEnd of program.\n");
             break;
         }
