@@ -26,23 +26,36 @@ impl Default for ModRM {
     }
 }
 
-pub fn parse_modrm(emu: &mut Emulator) -> ModRM { let code = get_code8(emu, 0);
+pub fn parse_modrm(emu: &mut Emulator) -> ModRM {
+    let code = get_code8(emu, 0);
     let mut modrm = ModRM::default();
     modrm.modval = ((code & 0xc0) >> 6).try_into().unwrap();
     modrm.opecode = ((code & 0x38) >> 3).try_into().unwrap();
+    modrm.reg_index = ((code & 0x38) >> 3).try_into().unwrap();
     modrm.rm = (code & 0x07).try_into().unwrap();
 
     emu.eip += 1;
 
+    // r/m == 0b11: [sib (+ disp8/disp32)] except that mod is 0b11.
     if modrm.modval != 3 && modrm.rm == 4 {
         modrm.sib = get_code8(emu, 0).try_into().unwrap();
         emu.eip += 1;
+    }
+
+    // mod == 0b00 && r/m == 0b101: [rip/eip + disp32]
+    // mod == 0b02: [r/m + disp32]
+    if (modrm.modval == 0 && modrm.rm == 5) || modrm.modval == 2 {
+        modrm.disp32 = get_sign_code32(emu, 0).try_into().unwrap();
+        emu.eip += 4;
+    // mod == 0b01: [r/m + disp8]
     } else if modrm.modval == 1 {
         modrm.disp8 = get_sign_code8(emu, 0).try_into().unwrap();
         emu.eip += 1;
     }
     return modrm;
 }
+
+
 
 // Get rm32 register or 32-bit data from a memory.
 pub fn get_rm32(emu: &mut Emulator, modrm: &ModRM) -> u32 {

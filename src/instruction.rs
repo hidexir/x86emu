@@ -18,12 +18,21 @@ pub fn mov_rm32_r32(emu: &mut Emulator) {
     set_rm32(emu, &modrm, r32);
 }
 
+// ADD r/m32, imm8 (83 /0 ib): Add sign-extended imm8 to r/m32.
+pub fn add_rm32_imm8(emu: &mut Emulator, modrm: &ModRM) {
+    let rm32 = get_rm32(emu, modrm);
+    let imm8 = get_sign_code8(emu, 0) as u32;
+    emu.eip += 1;
+    set_rm32(emu, modrm, rm32 + imm8);
+}
+
 
 pub fn code_83(emu: &mut Emulator) {
     emu.eip += 1;
     let modrm = parse_modrm(emu);
 
     match modrm.opecode {
+        0 => { add_rm32_imm8(emu, &modrm); }
         5 => { sub_rm32_imm8(emu, &modrm); }
         _ => {
             println!("not implemented 83 {}", modrm.opecode);
@@ -109,7 +118,7 @@ pub fn init_instructions(instructions: &mut Insts) {
 
     instructions[0xC3] = ret;
     instructions[0xE8] = call_rel32;
-
+    instructions[0xC9] = leave;
 }
 
 // ADD r/m32, r32 (01 /r): Add r32 to r/m32.
@@ -149,14 +158,12 @@ pub fn push_imm32(emu: &mut Emulator) {
 }
 
 pub fn push_imm8(emu: &mut Emulator) {
-    println!("push_imm8");
     let value = get_code8(emu, 1);
     push32(emu, value.into());
     emu.eip += 2;
 }
 
 pub fn pop_r32(emu: &mut Emulator) {
-    println!("call pop_r32");
     let reg = (get_code8(emu, 0) - 0x58) as usize;
     let value = pop32(emu);
     set_register32(emu, reg, value);
@@ -173,3 +180,10 @@ pub fn ret(emu: &mut Emulator) {
     emu.eip = pop32(emu).try_into().unwrap();
 }
 
+pub fn leave(emu: &mut Emulator) {
+    let ebp = get_register32(emu, EBP);
+    let value = pop32(emu);
+    set_register32(emu, ESP, ebp);
+    set_register32(emu, EBP, value);
+    emu.eip += 1;
+}

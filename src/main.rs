@@ -49,9 +49,6 @@ fn create_emu(eip: usize, esp: u32) -> Emulator {
     let memory = Vec::new();
     let mut registers = [0; REGISTERS_COUNT]; 
     registers[ESP] = esp;
-    //println!("here!");
-    //println!("{:?}", type_of(registers));
-    //println!("{:?}", registers);
     return Emulator {
         regs: registers,
         eflags: 0,
@@ -65,7 +62,6 @@ fn dump_registers(emu: &mut Emulator) {
         println!("{0} = {1:x}", REGISTERS_NAME[i], emu.regs[i])
         //println!("{0} = {1:x}", REGISTERS_NAME[i], emu.regs[i])
     }
-    println!("EIP = {}", emu.eip)
 }
 
 fn read_binary(emu: &mut Emulator, filename: &String) -> u64 {
@@ -107,18 +103,10 @@ fn main() {
 
 
     let mut instructions: Insts = [nop; 256];
-    println!("{:?}",instructions.len());
-    println!("{:?}",instructions[0](&mut emu));
-    println!("{:p}", instructions[0] as *const());
-    println!("{:p}", instructions[1] as *const());
-    println!("{:p}", instructions[0xE8] as *const());
     init_instructions(&mut instructions);
-    //↓ここにshort jumpがきていることを確認できる.
-    println!("{:p}", instructions[0xEB] as *const());
 
     while emu.eip < MEMORY_SIZE {
         let code = get_code8(&mut emu, 0) as usize;
-        println!("EIP = {}, Code = {} {:x}", emu.eip, code, code);
 
         if instructions[code] as usize == nop as usize {
             println!("Not implemented: {0}", code);
@@ -129,8 +117,6 @@ fn main() {
         instructions[code](&mut emu);
 
         // TODO: when does a program finish?
-        println!("len is {}",len);
-        println!("eip is {}",emu.eip);
         if emu.eip >= len as usize || emu.eip == 0 {
             println!("End of program.\n");
             break;
