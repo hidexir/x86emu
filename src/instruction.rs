@@ -26,6 +26,120 @@ pub fn add_rm32_imm8(emu: &mut Emulator, modrm: &ModRM) {
     set_rm32(emu, modrm, rm32 + imm8);
 }
 
+// JO (70): Jump if overflow.
+pub fn jo(emu: &mut Emulator) {
+    let mut diff = 0;
+    if is_overflow(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JNO (71): Jump if not overflow.
+pub fn jno(emu: &mut Emulator) {
+    let mut diff = 0;
+    if !is_overflow(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JC (72): Jump if carry.
+pub fn jc(emu: &mut Emulator) {
+    let mut diff = 0;
+    if is_carry(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JNC (73): Jump if not carry.
+pub fn jnc(emu: &mut Emulator) {
+    let mut diff = 0;
+    if !is_carry(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JZ (74): Jump if zero.
+pub fn jz(emu: &mut Emulator) {
+    let mut diff = 0;
+    if is_zero(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JNZ (75): Jump if not zero.
+pub fn jnz(emu: &mut Emulator) {
+    let mut diff = 0;
+    if !is_zero(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JS (78): Jump if sign.
+pub fn js(emu: &mut Emulator) {
+    let mut diff = 0;
+    if is_sign(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JNS (79): Jump if not sign.
+pub fn jns(emu: &mut Emulator) {
+    let mut diff = 0;
+    if !is_sign(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JE (7C): Jump if less (short jump).
+pub fn jl(emu: &mut Emulator) {
+    let mut diff = 0;
+    // SF != OF
+    if is_sign(emu) != is_overflow(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JGE (7D): Jump if greater or equal (short jump).
+pub fn jge(emu: &mut Emulator) {
+    let mut diff = 0;
+    // SF = OF
+    if is_sign(emu) == is_overflow(emu) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JLE (7E): Jump if less or equal (short jump).
+pub fn jle(emu: &mut Emulator) {
+    let mut diff = 0;
+    // ZF = 1 or SF != OF
+    if is_zero(emu) || (is_sign(emu) != is_overflow(emu)) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+// JG (7F): Jump if greater (short jump).
+pub fn jg(emu: &mut Emulator) {
+    let mut diff = 0;
+    // ZF = 0 and SF = OF
+    if !is_zero(emu) && (is_sign(emu) == is_overflow(emu)) {
+        diff = get_sign_code8(emu, 1);
+    }
+    emu.eip = emu.eip.wrapping_add((diff + 2) as usize);
+}
+
+
+
 
 pub fn code_83(emu: &mut Emulator) {
     emu.eip += 1;
@@ -34,6 +148,7 @@ pub fn code_83(emu: &mut Emulator) {
     match modrm.opecode {
         0 => { add_rm32_imm8(emu, &modrm); }
         5 => { sub_rm32_imm8(emu, &modrm); }
+        7 => { cmp_rm32_imm8(emu, &modrm); }
         _ => {
             println!("not implemented 83 {}", modrm.opecode);
             process::exit(1);
@@ -102,6 +217,20 @@ pub fn init_instructions(instructions: &mut Insts) {
     instructions[0x68] = push_imm32;
     instructions[0x6A] = push_imm8;
 
+    instructions[0x70] = jo;
+    instructions[0x71] = jno;
+    instructions[0x72] = jc;
+    instructions[0x73] = jnc;
+    instructions[0x74] = jz;
+    instructions[0x75] = jnz;
+    instructions[0x78] = js;
+    instructions[0x79] = jns;
+    instructions[0x7C] = jl;
+    instructions[0x7D] = jge;
+    instructions[0x7E] = jle;
+    instructions[0x7F] = jg;
+
+
 
     instructions[0x01] = add_rm32_r32;
     instructions[0x83] = code_83;
@@ -133,9 +262,11 @@ pub fn add_rm32_r32(emu: &mut Emulator) {
 // SUB r/m32, imm8 (83 /5 ib): Subtract sign-extended imm8 from r/m32.
 pub fn sub_rm32_imm8(emu: &mut Emulator, modrm: &ModRM) {
     let rm32 = get_rm32(emu, &modrm);
-    let imm8 = get_sign_code8(emu, 0);
+    let imm8 = get_sign_code8(emu, 0) as u32;
     emu.eip += 1;
-    set_rm32(emu, &modrm, (rm32 as i32 - imm8) as u32);
+    set_rm32(emu, &modrm, rm32 - imm8);
+    let result = rm32 - imm8;
+    update_eflags_sub(emu, rm32, imm8, result.into());
 }
 
 // INC r/m32 (FF /0): Increment r/m doubleword by 1.
@@ -174,6 +305,25 @@ pub fn call_rel32(emu: &mut Emulator) {
     let diff = get_sign_code32(emu, 1);
     push32(emu, (emu.eip + 5).try_into().unwrap());
     emu.eip = emu.eip.wrapping_add((diff + 5) as usize);
+}
+
+// CMP r/m32, imm8 (83 /7 ib): Compare imm8 with r/m32.
+pub fn cmp_rm32_imm8(emu: &mut Emulator, modrm: &ModRM) {
+    let rm32 = get_rm32(emu, modrm);
+    let imm8 = get_sign_code8(emu, 0);
+    emu.eip += 1;
+    let result = rm32.wrapping_sub(imm8 as u32);
+    update_eflags_sub(emu, rm32, imm8.try_into().unwrap(), result.try_into().unwrap())
+}
+
+// CMP r32, r/m32 (3B /r): Compare r/m32 with r32.
+pub fn cmp_r32_rm32(emu: &mut Emulator) {
+    emu.eip += 1;
+    let modrm = parse_modrm(emu);
+    let r32 = get_r32(emu, &modrm);
+    let rm32 = get_rm32(emu, &modrm);
+    let result = r32 - rm32;
+    update_eflags_sub(emu, r32, rm32, result.into())
 }
 
 pub fn ret(emu: &mut Emulator) {
